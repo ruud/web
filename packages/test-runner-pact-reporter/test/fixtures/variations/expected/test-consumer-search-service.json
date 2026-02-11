@@ -1,0 +1,77 @@
+{
+  "consumer": {
+    "name": "test-consumer"
+  },
+  "provider": {
+    "name": "search-service"
+  },
+  "interactions": [
+    {
+      "description": "GET search with query params",
+      "providerState": "",
+      "request": {
+        "method": "GET",
+        "path": "/api/search",
+        "query": "q=test&limit=10&offset=0",
+        "headers": {
+          "content-type": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "results": [
+            {
+              "id": "1",
+              "title": "Test Result"
+            }
+          ],
+          "total": 1
+        },
+        "matchingRules": {
+          "$.body.results": {
+            "matchers": [
+              {
+                "match": "type",
+                "min": 0
+              }
+            ]
+          },
+          "$.body.results[*].id": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.results[*].title": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.total": {
+            "matchers": [
+              {
+                "match": "integer"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    },
+    "client": {
+      "name": "pact-msw-adapter-wtr",
+      "version": "1.0.0"
+    }
+  }
+}

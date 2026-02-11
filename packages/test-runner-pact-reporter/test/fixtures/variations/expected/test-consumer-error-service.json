@@ -1,0 +1,105 @@
+{
+  "consumer": {
+    "name": "test-consumer"
+  },
+  "provider": {
+    "name": "error-service"
+  },
+  "interactions": [
+    {
+      "description": "GET 404 not found",
+      "providerState": "",
+      "request": {
+        "method": "GET",
+        "path": "/api/users/999",
+        "headers": {
+          "content-type": "application/json"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "error": "User not found",
+          "code": "USER_NOT_FOUND"
+        },
+        "matchingRules": {
+          "$.body.error": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.code": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "POST 500 server error",
+      "providerState": "",
+      "request": {
+        "method": "POST",
+        "path": "/api/users",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "name": "Test"
+        },
+        "matchingRules": {
+          "$.body.name": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "status": 500,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "error": "Internal server error",
+          "code": "INTERNAL_ERROR"
+        },
+        "matchingRules": {
+          "$.body.error": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.code": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    },
+    "client": {
+      "name": "pact-msw-adapter-wtr",
+      "version": "1.0.0"
+    }
+  }
+}

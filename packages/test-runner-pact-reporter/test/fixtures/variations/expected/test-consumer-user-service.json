@@ -1,0 +1,110 @@
+{
+  "consumer": {
+    "name": "test-consumer"
+  },
+  "provider": {
+    "name": "user-service"
+  },
+  "interactions": [
+    {
+      "description": "GET user with nested profile",
+      "providerState": "",
+      "request": {
+        "method": "GET",
+        "path": "/api/users/1/profile",
+        "headers": {
+          "content-type": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "1",
+          "profile": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "address": {
+              "street": "123 Main St",
+              "city": "Springfield",
+              "zipCode": "12345"
+            },
+            "preferences": {
+              "theme": "dark",
+              "notifications": true
+            }
+          }
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.firstName": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.lastName": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.address.street": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.address.city": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.address.zipCode": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.preferences.theme": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.profile.preferences.notifications": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    },
+    "client": {
+      "name": "pact-msw-adapter-wtr",
+      "version": "1.0.0"
+    }
+  }
+}

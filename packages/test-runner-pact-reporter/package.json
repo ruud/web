@@ -1,0 +1,76 @@
+{
+  "name": "@web/test-runner-pact-reporter",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Pact reporter for @web/test-runner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/modernweb-dev/web.git",
+    "directory": "packages/test-runner-pact-reporter"
+  },
+  "author": "modern-web",
+  "homepage": "https://github.com/modernweb-dev/web/tree/master/packages/test-runner-pact-reporter",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./browser/index.d.ts",
+      "import": "./browser/index.mjs",
+      "require": "./dist/browser/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "mocha test/**/*.test.ts --require ts-node/register --reporter dot",
+    "test:watch": "mocha test/**/*.test.ts --require ts-node/register --watch --watch-files src,test --reporter dot"
+  },
+  "files": [
+    "*.d.ts",
+    "*.js",
+    "*.mjs",
+    "dist",
+    "src",
+    "browser"
+  ],
+  "keywords": [
+    "web",
+    "test",
+    "runner",
+    "testrunner",
+    "pact",
+    "reporter"
+  ],
+  "dependencies": {
+    "@web/test-runner-chrome": "^0.18.0",
+    "@web/test-runner-core": "^0.13.0",
+    "array-flat-polyfill": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^18.0.0",
+    "@web/test-runner-playwright": "^0.11.0",
+    "chai": "^4.3.0",
+    "globby": "^11.0.0",
+    "mocha": "^10.0.0",
+    "ts-node": "^10.0.0"
+  },
+  "peerDependencies": {
+    "@open-wc/testing": "^3.0.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@open-wc/testing": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "consumer": {
+    "name": "test-consumer"
+  },
+  "provider": {
+    "name": "user-service"
+  },
+  "interactions": [
+    {
+      "description": "GET user by ID",
+      "providerState": "",
+      "request": {
+        "method": "GET",
+        "path": "/api/users/789",
+        "headers": {
+          "content-type": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "id": "789",
+          "name": "Alice"
+        },
+        "matchingRules": {
+          "$.body.id": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          },
+          "$.body.name": {
+            "matchers": [
+              {
+                "match": "type"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    },
+    "client": {
+      "name": "pact-msw-adapter-wtr",
+      "version": "1.0.0"
+    }
+  }
+}

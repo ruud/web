@@ -1,0 +1,28 @@
+{
+  "consumer": {
+    "name": "test-consumer"
+  },
+  "provider": {
+    "name": "user-service"
+  },
+  "interactions": [
+    {
+      "description": "GET without query or body",
+      "providerState": "",
+      "request": {
+        "method": "GET",
+        "path": "/api/status",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "headers": {}
+      }
+    }
+  ],
+  "metadata": {
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  }
+}
