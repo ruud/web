@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('Multiple Providers', function () {
-  it('fetches user from user-service', function () {
+  it('fetches user from user-service', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -34,14 +35,12 @@ describe('Multiple Providers', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });
 
-  it('fetches products from product-service', function () {
+  it('fetches products from product-service', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'product-service' },
@@ -76,9 +75,7 @@ describe('Multiple Providers', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-product-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });

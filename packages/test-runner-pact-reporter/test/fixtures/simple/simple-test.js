@@ -1,8 +1,9 @@
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 import '../../../../../node_modules/chai/chai.js';
 
 describe('User Service', function () {
-  it('fetches user profile', function () {
-    // Simulate the Pact adapter logging a single interaction
+  it('fetches user profile', async function () {
+    // Simulate the Pact adapter sending a pact via executeServerCommand
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -41,7 +42,7 @@ describe('User Service', function () {
       },
     };
 
-    console.log(`[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactFile)}`);
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });

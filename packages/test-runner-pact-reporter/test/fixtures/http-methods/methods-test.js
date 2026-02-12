@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('HTTP Methods', function () {
-  it('handles various HTTP methods', function () {
+  it('handles various HTTP methods', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -114,9 +115,7 @@ describe('HTTP Methods', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });

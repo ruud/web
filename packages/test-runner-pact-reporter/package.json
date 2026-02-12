@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "Pact reporter for @web/test-runner",
+  "description": "Pact reporter and plugin for @web/test-runner",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -52,8 +52,7 @@
   ],
   "dependencies": {
     "@web/test-runner-chrome": "^0.18.0",
-    "@web/test-runner-core": "^0.13.0",
-    "array-flat-polyfill": "^1.0.1"
+    "@web/test-runner-core": "^0.13.0"
   },
   "devDependencies": {
     "@types/chai": "^4.3.0",
@@ -66,10 +65,14 @@
     "ts-node": "^10.0.0"
   },
   "peerDependencies": {
-    "@open-wc/testing": "^3.0.0 || ^4.0.0"
+    "@open-wc/testing": "^3.0.0 || ^4.0.0",
+    "@web/test-runner-commands": "^0.9.0"
   },
   "peerDependenciesMeta": {
     "@open-wc/testing": {
+      "optional": true
+    },
+    "@web/test-runner-commands": {
       "optional": true
     }
   }

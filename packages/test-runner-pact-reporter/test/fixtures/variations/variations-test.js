@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('Request/Response Variations', function () {
-  it('handles query parameters', function () {
+  it('handles query parameters', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'search-service' },
@@ -37,14 +38,12 @@ describe('Request/Response Variations', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-search-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });
 
-  it('handles error responses', function () {
+  it('handles error responses', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'error-service' },
@@ -102,14 +101,12 @@ describe('Request/Response Variations', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-error-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });
 
-  it('handles nested objects', function () {
+  it('handles nested objects', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -160,9 +157,7 @@ describe('Request/Response Variations', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });

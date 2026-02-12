@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('User Service - Multiple Interactions', function () {
-  it('fetches user list', function () {
+  it('fetches user list', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -35,14 +36,12 @@ describe('User Service - Multiple Interactions', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });
 
-  it('creates new user', function () {
+  it('creates new user', async function () {
     const pactFile = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -93,9 +92,7 @@ describe('User Service - Multiple Interactions', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactFile)}`,
-    );
+    await executeServerCommand('pact:report', pactFile);
 
     chai.expect(true).to.be.true;
   });

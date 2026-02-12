@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('Missing optional fields', function () {
-  it('handles Pact with minimal fields', function () {
+  it('handles Pact with minimal fields', async function () {
     const pactMinimal = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -25,9 +26,7 @@ describe('Missing optional fields', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactMinimal)}`,
-    );
+    await executeServerCommand('pact:report', pactMinimal);
     chai.expect(true).to.be.true;
   });
 });

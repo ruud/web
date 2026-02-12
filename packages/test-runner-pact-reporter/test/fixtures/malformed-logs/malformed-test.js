@@ -1,14 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('Malformed logs', function () {
-  it('handles malformed and valid logs', function () {
-    // Invalid: no space separator
-    console.log('[PACT-ADAPTER] FILE no-space-separator-here');
-
-    // Invalid: malformed JSON
-    console.log('[PACT-ADAPTER] FILE ./pacts/bad.json {invalid json}');
-
-    // Valid log
+  it('sends valid pact data', async function () {
     const validPact = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -38,13 +32,7 @@ describe('Malformed logs', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(validPact)}`,
-    );
-
-    // More invalid logs after valid one
-    console.log('[PACT-ADAPTER] FILE');
-    console.log('[PACT-ADAPTER] FILE  '); // Just spaces
+    await executeServerCommand('pact:report', validPact);
 
     chai.expect(true).to.be.true;
   });

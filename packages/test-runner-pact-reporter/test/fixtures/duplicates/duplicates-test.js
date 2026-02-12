@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('Duplicate interactions', function () {
-  it('logs same interaction multiple times', function () {
+  it('logs same interaction multiple times', async function () {
     const pactData1 = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -31,14 +32,12 @@ describe('Duplicate interactions', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactData1)}`,
-    );
+    await executeServerCommand('pact:report', pactData1);
 
     chai.expect(true).to.be.true;
   });
 
-  it('logs duplicate interaction again', function () {
+  it('logs duplicate interaction again', async function () {
     const pactData2 = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -68,14 +67,12 @@ describe('Duplicate interactions', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactData2)}`,
-    );
+    await executeServerCommand('pact:report', pactData2);
 
     chai.expect(true).to.be.true;
   });
 
-  it('logs unique interaction', function () {
+  it('logs unique interaction', async function () {
     const pactData3 = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -109,9 +106,7 @@ describe('Duplicate interactions', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pactData3)}`,
-    );
+    await executeServerCommand('pact:report', pactData3);
 
     chai.expect(true).to.be.true;
   });

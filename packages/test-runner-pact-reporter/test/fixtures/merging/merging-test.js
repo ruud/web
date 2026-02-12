@@ -1,7 +1,8 @@
 import '../../../../../node_modules/chai/chai.js';
+import { executeServerCommand } from '../../../../../packages/test-runner-commands/browser/commands.mjs';
 
 describe('Interaction merging', function () {
-  it('first test logs interaction', function () {
+  it('first test logs interaction', async function () {
     const pact1 = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -31,13 +32,11 @@ describe('Interaction merging', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pact1)}`,
-    );
+    await executeServerCommand('pact:report', pact1);
     chai.expect(true).to.be.true;
   });
 
-  it('second test logs another interaction', function () {
+  it('second test logs another interaction', async function () {
     const pact2 = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -71,13 +70,11 @@ describe('Interaction merging', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pact2)}`,
-    );
+    await executeServerCommand('pact:report', pact2);
     chai.expect(true).to.be.true;
   });
 
-  it('third test logs yet another interaction', function () {
+  it('third test logs yet another interaction', async function () {
     const pact3 = {
       consumer: { name: 'test-consumer' },
       provider: { name: 'user-service' },
@@ -102,9 +99,7 @@ describe('Interaction merging', function () {
       },
     };
 
-    console.log(
-      `[PACT-ADAPTER] FILE ./pacts/test-consumer-user-service.json ${JSON.stringify(pact3)}`,
-    );
+    await executeServerCommand('pact:report', pact3);
     chai.expect(true).to.be.true;
   });
 });

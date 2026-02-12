@@ -1,92 +1,40 @@
 import { expect } from 'chai';
+import { getPactStore, clearPactStore, pactPlugin } from '../src/pactPlugin.js';
 
 /**
- * Unit tests for reporter internal functions
- * These test the parsing and file writing logic in isolation
+ * Unit tests for pactPlugin internals
+ * These test the store management, command handling, and deduplication logic
  */
 
-// Mock TestSession interface for testing
-interface TestSession {
-  logs?: any[][];
-}
+describe('Plugin Internals', function () {
+  beforeEach(function () {
+    clearPactStore();
+  });
 
-// Copy of the internal parsing function for testing
-function parsePactFilesFromLogs(
-  sessions: TestSession[],
-  debug: boolean,
-): Map<string, any> {
-  const pactFiles = new Map<string, any>();
-  const PACT_LOG_PREFIX = '[PACT-ADAPTER] FILE ';
-
-  for (const session of sessions) {
-    if (!session.logs || session.logs.length === 0) {
-      continue;
-    }
-
-    for (const logEntries of session.logs) {
-      for (const logEntry of logEntries) {
-        if (typeof logEntry !== 'string') {
-          continue;
-        }
-
-        if (logEntry.startsWith(PACT_LOG_PREFIX)) {
-          try {
-            const content = logEntry.slice(PACT_LOG_PREFIX.length);
-            const firstSpace = content.indexOf(' ');
-
-            if (firstSpace === -1) {
-              if (debug) {
-                console.warn('[PACT-REPORTER] Invalid Pact log format:', logEntry);
-              }
-              continue;
-            }
-
-            const filepath = content.slice(0, firstSpace);
-            const jsonStr = content.slice(firstSpace + 1);
-            const pactData = JSON.parse(jsonStr);
-
-            if (pactFiles.has(filepath)) {
-              const existing = pactFiles.get(filepath)!;
-              existing.interactions.push(...pactData.interactions);
-            } else {
-              pactFiles.set(filepath, pactData);
-            }
-
-            if (debug) {
-              console.log(
-                `[PACT-REPORTER] Parsed Pact: ${filepath} (${pactData.interactions.length} interactions)`,
-              );
-            }
-          } catch (error) {
-            if (debug) {
-              console.error('[PACT-REPORTER] Error parsing Pact log:', error, logEntry);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return pactFiles;
-}
-
-describe('Reporter Internals', function () {
-  describe('parsePactFilesFromLogs', function () {
-    it('returns empty Map for empty sessions array', function () {
-      const result = parsePactFilesFromLogs([], false);
-      expect(result.size).to.equal(0);
+  describe('getPactStore / clearPactStore', function () {
+    it('returns empty Map initially', function () {
+      const store = getPactStore();
+      expect(store.size).to.equal(0);
     });
 
-    it('returns empty Map for sessions with no logs', function () {
-      const sessions = [
-        { logs: [] } as TestSession,
-        { logs: undefined } as any,
-      ];
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(0);
-    });
+    it('clears the store', function () {
+      const store = getPactStore();
+      store.set('test-provider', {
+        consumer: { name: 'test' },
+        provider: { name: 'test-provider' },
+        interactions: [],
+        metadata: { pactSpecification: { version: '3.0.0' } },
+      });
+      expect(store.size).to.equal(1);
 
-    it('parses valid Pact log message', function () {
+      clearPactStore();
+      expect(getPactStore().size).to.equal(0);
+    });
+  });
+
+  describe('executeCommand - pact:report', function () {
+    it('stores a valid pact payload', function () {
+      const plugin = pactPlugin();
       const pactData = {
         consumer: { name: 'test-consumer' },
         provider: { name: 'test-provider' },
@@ -97,229 +45,179 @@ describe('Reporter Internals', function () {
             response: { status: 200 },
           },
         ],
-        metadata: {
-          pactSpecification: { version: '3.0.0' },
-        },
+        metadata: { pactSpecification: { version: '3.0.0' } },
       };
 
-      const sessions = [
-        {
-          logs: [
-            [
-              `[PACT-ADAPTER] FILE ./pacts/test-consumer-test-provider.json ${JSON.stringify(pactData)}`,
-            ],
-          ],
-        } as any,
-      ];
+      const result = plugin.executeCommand({ command: 'pact:report', payload: pactData });
+      expect(result).to.deep.include({
+        success: true,
+        provider: 'test-provider',
+        interactionCount: 1,
+      });
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(1);
-      expect(result.get('./pacts/test-consumer-test-provider.json')).to.deep.equal(pactData);
+      const store = getPactStore();
+      expect(store.size).to.equal(1);
+      expect(store.get('test-provider')).to.deep.equal(pactData);
     });
 
-    it('ignores non-string log entries', function () {
-      const sessions = [
-        {
-          logs: [[123, null, undefined, { foo: 'bar' }]],
-        } as any,
-      ];
+    it('returns error for invalid payload', function () {
+      const plugin = pactPlugin();
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(0);
+      const result = plugin.executeCommand({ command: 'pact:report', payload: null });
+      expect(result).to.deep.include({ success: false });
     });
 
-    it('ignores logs without PACT-ADAPTER prefix', function () {
-      const sessions = [
-        {
-          logs: [
-            [
-              'Regular log message',
-              'console.log output',
-              '[OTHER-PREFIX] Some other message',
-            ],
-          ],
-        } as any,
-      ];
+    it('returns error for payload without provider name', function () {
+      const plugin = pactPlugin();
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(0);
+      const result = plugin.executeCommand({
+        command: 'pact:report',
+        payload: { consumer: { name: 'test' }, interactions: [] },
+      });
+      expect(result).to.deep.include({ success: false });
     });
 
-    it('skips malformed log messages (no space separator)', function () {
-      const sessions = [
-        {
-          logs: [['[PACT-ADAPTER] FILE no-space-here']],
-        } as any,
-      ];
+    it('merges interactions from same provider', function () {
+      const plugin = pactPlugin();
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(0);
-    });
-
-    it('skips logs with invalid JSON', function () {
-      const sessions = [
-        {
-          logs: [['[PACT-ADAPTER] FILE ./pacts/test.json {invalid json}']],
-        } as any,
-      ];
-
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(0);
-    });
-
-    it('merges interactions from same filepath', function () {
-      const pactData1 = {
+      const pact1 = {
         consumer: { name: 'test-consumer' },
         provider: { name: 'test-provider' },
         interactions: [{ description: 'interaction 1' }],
         metadata: { pactSpecification: { version: '3.0.0' } },
       };
 
-      const pactData2 = {
+      const pact2 = {
         consumer: { name: 'test-consumer' },
         provider: { name: 'test-provider' },
         interactions: [{ description: 'interaction 2' }],
         metadata: { pactSpecification: { version: '3.0.0' } },
       };
 
-      const sessions = [
-        {
-          logs: [
-            [
-              `[PACT-ADAPTER] FILE ./pacts/test.json ${JSON.stringify(pactData1)}`,
-              `[PACT-ADAPTER] FILE ./pacts/test.json ${JSON.stringify(pactData2)}`,
-            ],
-          ],
-        } as any,
-      ];
+      plugin.executeCommand({ command: 'pact:report', payload: pact1 });
+      plugin.executeCommand({ command: 'pact:report', payload: pact2 });
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(1);
+      const store = getPactStore();
+      expect(store.size).to.equal(1);
 
-      const merged = result.get('./pacts/test.json');
-      expect(merged.interactions).to.have.lengthOf(2);
-      expect(merged.interactions[0].description).to.equal('interaction 1');
-      expect(merged.interactions[1].description).to.equal('interaction 2');
+      const merged = store.get('test-provider');
+      expect(merged!.interactions).to.have.lengthOf(2);
+      expect(merged!.interactions[0].description).to.equal('interaction 1');
+      expect(merged!.interactions[1].description).to.equal('interaction 2');
     });
 
-    it('handles multiple sessions', function () {
-      const pactData = {
+    it('stores pacts for different providers separately', function () {
+      const plugin = pactPlugin();
+
+      const pact1 = {
         consumer: { name: 'test-consumer' },
-        provider: { name: 'test-provider' },
-        interactions: [{ description: 'test' }],
+        provider: { name: 'provider-a' },
+        interactions: [{ description: 'interaction a' }],
         metadata: { pactSpecification: { version: '3.0.0' } },
       };
 
-      const sessions = [
-        {
-          logs: [[`[PACT-ADAPTER] FILE ./pacts/test1.json ${JSON.stringify(pactData)}`]],
-        } as any,
-        {
-          logs: [[`[PACT-ADAPTER] FILE ./pacts/test2.json ${JSON.stringify(pactData)}`]],
-        } as any,
-      ];
-
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(2);
-      expect(result.has('./pacts/test1.json')).to.be.true;
-      expect(result.has('./pacts/test2.json')).to.be.true;
-    });
-
-    it('handles multiple log entries in nested arrays', function () {
-      const pactData = {
+      const pact2 = {
         consumer: { name: 'test-consumer' },
-        provider: { name: 'test-provider' },
-        interactions: [{ description: 'test' }],
+        provider: { name: 'provider-b' },
+        interactions: [{ description: 'interaction b' }],
         metadata: { pactSpecification: { version: '3.0.0' } },
       };
 
-      const sessions = [
-        {
-          logs: [
-            [`[PACT-ADAPTER] FILE ./pacts/test1.json ${JSON.stringify(pactData)}`],
-            [`[PACT-ADAPTER] FILE ./pacts/test2.json ${JSON.stringify(pactData)}`],
-          ],
-        } as any,
-      ];
+      plugin.executeCommand({ command: 'pact:report', payload: pact1 });
+      plugin.executeCommand({ command: 'pact:report', payload: pact2 });
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(2);
+      const store = getPactStore();
+      expect(store.size).to.equal(2);
+      expect(store.has('provider-a')).to.be.true;
+      expect(store.has('provider-b')).to.be.true;
     });
+  });
 
-    it('handles mixed valid and invalid logs', function () {
-      const validPact = {
-        consumer: { name: 'test-consumer' },
-        provider: { name: 'test-provider' },
-        interactions: [{ description: 'valid' }],
-        metadata: { pactSpecification: { version: '3.0.0' } },
-      };
+  describe('executeCommand - pact:clear', function () {
+    it('clears the pact store', function () {
+      const plugin = pactPlugin();
 
-      const sessions = [
-        {
-          logs: [
-            [
-              'Regular log',
-              `[PACT-ADAPTER] FILE ./pacts/valid.json ${JSON.stringify(validPact)}`,
-              '[PACT-ADAPTER] FILE invalid-format',
-              'Another regular log',
-              '[PACT-ADAPTER] FILE ./pacts/bad.json {invalid json}',
-            ],
-          ],
-        } as any,
-      ];
+      // Add some data first
+      plugin.executeCommand({
+        command: 'pact:report',
+        payload: {
+          consumer: { name: 'test' },
+          provider: { name: 'test-provider' },
+          interactions: [{ description: 'test' }],
+          metadata: { pactSpecification: { version: '3.0.0' } },
+        },
+      });
+      expect(getPactStore().size).to.equal(1);
 
-      const result = parsePactFilesFromLogs(sessions, false);
-      expect(result.size).to.equal(1);
-      expect(result.has('./pacts/valid.json')).to.be.true;
+      const result = plugin.executeCommand({ command: 'pact:clear' });
+      expect(result).to.deep.equal({ success: true });
+      expect(getPactStore().size).to.equal(0);
+    });
+  });
+
+  describe('executeCommand - unknown command', function () {
+    it('returns undefined for unknown commands', function () {
+      const plugin = pactPlugin();
+      const result = plugin.executeCommand({ command: 'unknown:command' });
+      expect(result).to.be.undefined;
     });
   });
 
   describe('Deduplication logic', function () {
-    it('removes duplicate interactions by description', function () {
-      const interactions = [
-        { description: 'GET user', request: {}, response: {} },
-        { description: 'POST user', request: {}, response: {} },
-        { description: 'GET user', request: {}, response: {} }, // Duplicate
-        { description: 'DELETE user', request: {}, response: {} },
-        { description: 'POST user', request: {}, response: {} }, // Duplicate
-      ];
+    it('stores raw interactions (deduplication happens at write time)', function () {
+      const plugin = pactPlugin();
 
-      // Simulate deduplication logic from pactReporter.ts
-      const uniqueInteractions = Array.from(
-        new Map(interactions.map(i => [i.description, i])).values(),
-      );
+      const pact = {
+        consumer: { name: 'test-consumer' },
+        provider: { name: 'test-provider' },
+        interactions: [
+          {
+            description: 'GET user first',
+            request: { method: 'GET', path: '/api/users/1' },
+            response: { status: 200 },
+          },
+          {
+            description: 'POST user',
+            request: { method: 'POST', path: '/api/users', body: { name: 'Test' } },
+            response: { status: 201 },
+          },
+          {
+            description: 'GET user duplicate',
+            request: { method: 'GET', path: '/api/users/1' },
+            response: { status: 200 },
+          },
+          {
+            description: 'DELETE user',
+            request: { method: 'DELETE', path: '/api/users/1' },
+            response: { status: 204 },
+          },
+          {
+            description: 'POST user duplicate',
+            request: { method: 'POST', path: '/api/users', body: { name: 'Test' } },
+            response: { status: 201 },
+          },
+        ],
+        metadata: { pactSpecification: { version: '3.0.0' } },
+      };
 
-      expect(uniqueInteractions).to.have.lengthOf(3);
-      expect(uniqueInteractions.map(i => i.description)).to.deep.equal([
-        'GET user',
-        'POST user',
-        'DELETE user',
-      ]);
-    });
+      plugin.executeCommand({ command: 'pact:report', payload: pact });
 
-    it('keeps last occurrence of duplicate', function () {
-      const interactions = [
-        { description: 'test', value: 'first' },
-        { description: 'test', value: 'second' },
-        { description: 'test', value: 'third' },
-      ];
-
-      const uniqueInteractions = Array.from(
-        new Map(interactions.map(i => [i.description, i])).values(),
-      );
-
-      expect(uniqueInteractions).to.have.lengthOf(1);
-      expect(uniqueInteractions[0].value).to.equal('third');
+      const store = getPactStore();
+      expect(store.get('test-provider')!.interactions).to.have.lengthOf(5);
     });
 
     it('handles empty interactions array', function () {
-      const interactions: any[] = [];
+      const plugin = pactPlugin();
 
-      const uniqueInteractions = Array.from(
-        new Map(interactions.map(i => [i.description, i])).values(),
-      );
+      const pact = {
+        consumer: { name: 'test-consumer' },
+        provider: { name: 'test-provider' },
+        interactions: [],
+        metadata: { pactSpecification: { version: '3.0.0' } },
+      };
 
-      expect(uniqueInteractions).to.have.lengthOf(0);
+      const result = plugin.executeCommand({ command: 'pact:report', payload: pact });
+      expect(result).to.deep.include({ success: true, interactionCount: 0 });
     });
   });
 });

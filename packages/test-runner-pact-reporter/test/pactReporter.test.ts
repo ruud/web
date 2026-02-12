@@ -7,12 +7,12 @@ import { chromeLauncher } from '@web/test-runner-chrome';
 import { TestRunnerCoreConfig } from '@web/test-runner-core';
 import { runTests } from '@web/test-runner-core/test-helpers';
 import { pactReporter } from '../src/pactReporter.js';
+import { pactPlugin } from '../src/pactPlugin.js';
 
 const rootDir = path.join(__dirname, '..', '..', '..');
 
 /**
  * Normalize Pact output for comparison
- * - Removes dynamic timestamps, IDs, etc.
  * - Sorts interactions for consistent comparison
  */
 const normalizePactOutput = (output: string): string => {
@@ -40,10 +40,12 @@ const readNormalized = async (filePath: string): Promise<string> => {
 function createConfig({
   files,
   reporters,
+  plugins,
 }: Partial<TestRunnerCoreConfig>): Partial<TestRunnerCoreConfig> {
   return {
     files,
     reporters,
+    plugins,
     rootDir,
     coverageConfig: {
       report: false,
@@ -61,15 +63,16 @@ async function run(
   provider: string,
 ): Promise<{ actual: string; expected: string }> {
   const files = await globby('*-test.js', { absolute: true, cwd });
-  const outputPath = './pacts';
-  const reporters = [pactReporter({ outputPath, rootDir: cwd, debug: false })];
+  const outputDir = 'pacts';
+  const reporters = [pactReporter({ outputDir })];
+  const plugins = [pactPlugin({ outputDir })];
 
-  await runTests(createConfig({ files, reporters }), [], {
+  await runTests(createConfig({ files, reporters, plugins }), [], {
     allowFailure: true,
     reportErrors: false,
   });
 
-  const pactFile = path.join(cwd, outputPath, `${consumer}-${provider}.json`);
+  const pactFile = path.join(cwd, outputDir, `${consumer}-${provider}.json`);
   const actual = await readNormalized(pactFile);
   const expected = await readNormalized(path.join(cwd, 'expected', `${consumer}-${provider}.json`));
 
@@ -112,16 +115,40 @@ describe('pactReporter', function () {
     it('should return a reporter object', () => {
       const reporter = pactReporter();
       expect(reporter).to.be.an('object');
-      expect(reporter.onTestRunFinished).to.be.a('function');
+      expect(reporter.start).to.be.a('function');
+      expect(reporter.stop).to.be.a('function');
+      expect(reporter.getTestProgress).to.be.a('function');
     });
 
     it('should accept configuration options', () => {
       const reporter = pactReporter({
-        outputPath: './custom-pacts',
-        rootDir: '/custom/root',
-        debug: true,
+        outputDir: './custom-pacts',
+        verbose: true,
       });
       expect(reporter).to.be.an('object');
+    });
+  });
+
+  describe('pactPlugin API', function () {
+    it('should be a function', () => {
+      expect(pactPlugin).to.be.a('function');
+    });
+
+    it('should return a plugin object', () => {
+      const plugin = pactPlugin();
+      expect(plugin).to.be.an('object');
+      expect(plugin.name).to.equal('pact-plugin');
+      expect(plugin.serverStart).to.be.a('function');
+      expect(plugin.executeCommand).to.be.a('function');
+    });
+
+    it('should accept configuration options', () => {
+      const plugin = pactPlugin({
+        outputDir: './custom-pacts',
+        verbose: true,
+      });
+      expect(plugin).to.be.an('object');
+      expect(plugin.name).to.equal('pact-plugin');
     });
   });
 
@@ -158,21 +185,22 @@ describe('pactReporter', function () {
   });
 
   describe('Edge cases', function () {
-    describe('with no Pact logs', function () {
+    describe('with no pact commands', function () {
       const fixtureDir = path.join(__dirname, 'fixtures/no-pacts');
 
       it('does not create any Pact files', async function () {
         const files = await globby('*-test.js', { absolute: true, cwd: fixtureDir });
-        const outputPath = './pacts';
-        const reporters = [pactReporter({ outputPath, rootDir: fixtureDir, debug: false })];
+        const outputDir = 'pacts';
+        const reporters = [pactReporter({ outputDir })];
+        const plugins = [pactPlugin({ outputDir })];
 
-        await runTests(createConfig({ files, reporters }), [], {
+        await runTests(createConfig({ files, reporters, plugins }), [], {
           allowFailure: true,
           reportErrors: false,
         });
 
         // Check that no pacts directory was created
-        const pactsDir = path.join(fixtureDir, outputPath);
+        const pactsDir = path.join(fixtureDir, outputDir);
         const dirExists = await fs
           .access(pactsDir)
           .then(() => true)
@@ -182,10 +210,10 @@ describe('pactReporter', function () {
       });
     });
 
-    describe('with malformed log messages', function () {
+    describe('with valid pact data only (malformed-logs fixture)', function () {
       const fixtureDir = path.join(__dirname, 'fixtures/malformed-logs');
 
-      it('skips invalid logs and processes valid ones', async function () {
+      it('processes valid pact data', async function () {
         const { actual, expected } = await run(fixtureDir, 'test-consumer', 'user-service');
         expect(actual).to.equal(expected);
       });
@@ -194,7 +222,7 @@ describe('pactReporter', function () {
     describe('with duplicate interactions', function () {
       const fixtureDir = path.join(__dirname, 'fixtures/duplicates');
 
-      it('removes duplicate interactions by description', async function () {
+      it('removes duplicate interactions by method+path+body', async function () {
         const { actual, expected } = await run(fixtureDir, 'test-consumer', 'user-service');
         expect(actual).to.equal(expected);
       });
@@ -213,22 +241,21 @@ describe('pactReporter', function () {
   describe('Missing fields', function () {
     const fixtureDir = path.join(__dirname, 'fixtures/missing-fields');
 
-    it('handles logs with missing optional fields', async function () {
+    it('handles pacts with missing optional fields', async function () {
       const { actual, expected } = await run(fixtureDir, 'test-consumer', 'user-service');
       expect(actual).to.equal(expected);
     });
   });
 
   describe('Configuration options', function () {
-    it('accepts custom output path parameter', function () {
+    it('accepts custom output dir parameter', function () {
       const reporter = pactReporter({
-        outputPath: './custom-pacts',
-        rootDir: '/custom/root',
-        debug: true,
+        outputDir: './custom-pacts',
+        verbose: true,
       });
 
       expect(reporter).to.be.an('object');
-      expect(reporter.onTestRunFinished).to.be.a('function');
+      expect(reporter.stop).to.be.a('function');
     });
   });
 });

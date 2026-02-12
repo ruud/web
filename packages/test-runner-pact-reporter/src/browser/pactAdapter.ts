@@ -22,10 +22,10 @@
  *
  * 3. AFTER TEST (reportPacts)
  *    └── Group interactions by provider and send to Node.js:
- *        ├── PRIMARY: executeServerCommand('pact:report', pactFile)
- *        │   └── Direct WebSocket RPC to pact-wtr-plugin.mjs
+ *        ├── PRIMARY:  executeServerCommand('pact:report', pactFile)
+ *        │             └── Direct WebSocket RPC to pactPlugin
  *        └── FALLBACK: console.log('[PACT-ADAPTER] FILE ...')
- *            └── Parsed by pact-reporter.mjs
+ *                      └── For environments without plugin
  *
  * Note: @pactflow/pact-msw-adapter doesn't work in browser environments with
  * Web Test Runner, so this is a lightweight browser-compatible implementation.
