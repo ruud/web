@@ -7,13 +7,35 @@ import { chromeLauncher } from '@web/test-runner-chrome';
 import { TestRunnerCoreConfig } from '@web/test-runner-core';
 import { runTests } from '@web/test-runner-core/test-helpers';
 import { pactReporter } from '../src/pactReporter.js';
-import { pactPlugin } from '../src/pactPlugin.js';
+import { pactPlugin, clearPactStore } from '../src/pactPlugin.js';
 
 const rootDir = path.join(__dirname, '..', '..', '..');
 
 /**
+ * Recursively sort object keys for consistent JSON comparison
+ */
+const sortObjectKeys = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
+
+  const sorted: any = {};
+  Object.keys(obj)
+    .sort()
+    .forEach(key => {
+      sorted[key] = sortObjectKeys(obj[key]);
+    });
+  return sorted;
+};
+
+/**
  * Normalize Pact output for comparison
- * - Sorts interactions for consistent comparison
+ * - Sorts interactions by description for consistent comparison
+ * - Sorts all object keys recursively for consistent property order
  */
 const normalizePactOutput = (output: string): string => {
   try {
@@ -26,7 +48,10 @@ const normalizePactOutput = (output: string): string => {
       );
     }
 
-    return JSON.stringify(pact, null, 2);
+    // Sort all object keys recursively
+    const sorted = sortObjectKeys(pact);
+
+    return JSON.stringify(sorted, null, 2);
   } catch {
     return output;
   }
@@ -104,6 +129,14 @@ async function cleanupFixtures() {
 describe('pactReporter', function () {
   // Increase timeout for integration tests
   this.timeout(30000);
+
+  // Clean up any leftover files from previous test runs
+  before(cleanupFixtures);
+
+  // Clear the pactStore before each test to prevent accumulation
+  beforeEach(() => {
+    clearPactStore();
+  });
 
   after(cleanupFixtures);
 

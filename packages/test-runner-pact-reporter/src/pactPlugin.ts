@@ -139,6 +139,11 @@ function handlePactReport(
 function writePactFiles(outputDir: string): { success: boolean; files: any[] } {
   const results: any[] = [];
 
+  // Only create directory if we have files to write
+  if (pactStore.size > 0 && !fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   for (const [provider, pactFile] of pactStore) {
     const filename = `${pactFile.consumer.name}-${pactFile.provider.name}.json`;
     const filepath = path.join(outputDir, filename);
@@ -203,12 +208,9 @@ export function pactPlugin({
     name: 'pact-plugin',
 
     /**
-     * Server start hook - ensure output directory exists
+     * Server start hook - log initialization
      */
     serverStart() {
-      if (!fs.existsSync(fullOutputDir)) {
-        fs.mkdirSync(fullOutputDir, { recursive: true });
-      }
       if (verbose) {
         console.log('\n[PACT-PLUGIN] Pact Plugin initialized');
         console.log(`   Output directory: ${outputDir}`);
