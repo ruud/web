@@ -73,7 +73,7 @@ export function pactReporter({
         return;
       }
 
-      const fullOutputDir = path.resolve(process.cwd(), outputDir);
+      const fullOutputDir = path.resolve(rootDir, outputDir);
 
       if (!fs.existsSync(fullOutputDir)) {
         fs.mkdirSync(fullOutputDir, { recursive: true });

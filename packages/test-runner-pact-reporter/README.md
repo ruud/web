@@ -1,22 +1,26 @@
 # Test Runner Pact Reporter
 
-Pact contract testing reporter for Web Test Runner with MSW (Mock Service Worker) integration.
+Pact contract testing plugin and reporter for Web Test Runner with MSW (Mock Service Worker) integration.
 
-This package provides both a **Node.js reporter** that writes Pact files and a **browser-side adapter** that captures MSW mocked API interactions and converts them to Pact contracts.
+This package provides:
+
+- A **Node.js plugin** (`pactPlugin`) that receives Pact data from the browser via WebSocket RPC
+- A **Node.js reporter** (`pactReporter`) that writes accumulated Pact files to disk
+- A **browser-side adapter** that captures MSW mocked API interactions and converts them to Pact contracts
 
 ## Features
 
-- 🔄 Captures MSW mocked API interactions automatically
-- 📝 Generates Pact v3 contracts with flexible matching rules
-- 🎯 Smart matching for UUIDs, dates, emails, and more
-- 🏗️ Provider-based contract organization
-- 🧹 Automatic duplicate interaction filtering
-- 🔍 Debug mode for troubleshooting
+- Captures MSW mocked API interactions automatically
+- Generates Pact v3 contracts with flexible matching rules
+- Smart matching for UUIDs, dates, emails, and more
+- Provider-based contract organization
+- Automatic duplicate interaction filtering (by method + path + body)
+- Uses WTR's `executeServerCommand` WebSocket RPC for reliable browser-to-Node.js communication
 
 ## Installation
 
 ```bash
-npm install --save-dev @web/test-runner-pact-reporter
+npm install --save-dev @web/test-runner-pact-reporter @web/test-runner-commands
 ```
 
 **For Storybook integration:**
@@ -28,44 +32,59 @@ npm install --save-dev @open-wc/testing
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Browser (Test)                         │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  MSW Worker captures API calls                        │ │
-│  │       ↓                                                │ │
-│  │  Pact Adapter converts to Pact interactions           │ │
-│  │       ↓                                                │ │
-│  │  Logs: [PACT-ADAPTER] FILE <path> <json>             │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│                   Node.js (Reporter)                        │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Pact Reporter parses console logs                    │ │
-│  │       ↓                                                │ │
-│  │  Writes Pact contract files to disk                   │ │
-│  │  (one file per provider)                              │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────── BROWSER (Chromium) ───────────────────────────┐
+│                                                                          │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐   │
+│  │  Storybook Story │───>│   MSW Worker     │───>│  pactAdapter     │   │
+│  │  (play function) │    │  (intercepts API)│    │                  │   │
+│  └──────────────────┘    └──────────────────┘    └────────┬─────────┘   │
+│                                                           │             │
+│  1. Story renders component                               │             │
+│  2. Play function triggers API calls                      │             │
+│  3. MSW intercepts & returns mocked responses             │             │
+│  4. Adapter captures request/response pairs               v             │
+│                                                  ┌──────────────────┐   │
+│                                                  │executeServerCmd  │   │
+│                                                  │('pact:report',   │   │
+│                                                  │ pactData)        │   │
+└──────────────────────────────────────────────────┴────────┬─────────┴───┘
+                                                            │
+                            WebSocket RPC                   │
+                            ─────────────────────────────-->│
+                                                            │
+┌─────────────────────────── NODE.JS (WTR) ────────────────┬┴────────────┐
+│                                                          │             │
+│  ┌──────────────────┐                          ┌─────────v─────────┐   │
+│  │   pactPlugin()   │<─────────────────────────│  executeCommand() │   │
+│  │                  │   command: 'pact:report' │  handler          │   │
+│  │  - Receives pact │   payload: pactData      └───────────────────┘   │
+│  │  - Aggregates by │                                                  │
+│  │    provider      │                                                  │
+│  │  - Stores in Map │                                                  │
+│  └────────┬─────────┘                                                  │
+│           │                                                            │
+│           │ pactStore (shared Map)                                     │
+│           v                                                            │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐  │
+│  │  pactReporter()  │───>│  Deduplicates    │───>│  Writes JSON     │  │
+│  │  (on test stop)  │    │  interactions    │    │  to ./pacts/     │  │
+│  └──────────────────┘    └──────────────────┘    └──────────────────┘  │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Usage
 
-### Step 1: Configure the Node.js Reporter
+### Step 1: Configure the Plugin and Reporter
 
-Add the reporter to your `web-test-runner.config.js`:
+Add both the plugin and reporter to your `web-test-runner.config.js`:
 
 ```js
-import { pactReporter } from '@web/test-runner-pact-reporter';
+import { pactPlugin, pactReporter } from '@web/test-runner-pact-reporter';
 
 export default {
-  reporters: [
-    pactReporter({
-      outputPath: './pacts', // Directory for Pact files
-      debug: true, // Enable debug logging
-    }),
-  ],
+  plugins: [pactPlugin({ outputDir: 'pacts' })],
+  reporters: [pactReporter({ outputDir: 'pacts' })],
   // ... other config
 };
 ```
@@ -112,11 +131,11 @@ describe('UserProfile', () => {
     const element = await storyFixture(UserProfileStory, meta);
 
     // storyFixture handles everything automatically:
-    // ✅ Initializes Pact adapter
-    // ✅ Registers mocks from story.parameters.mocks
-    // ✅ Renders story with decorators & loaders
-    // ✅ Runs play function
-    // ✅ Reports Pact contracts
+    // - Initializes Pact adapter
+    // - Registers mocks from story.parameters.mocks
+    // - Renders story with decorators & loaders
+    // - Runs play function
+    // - Reports Pact contracts
 
     expect(element).to.exist;
   });
@@ -199,9 +218,9 @@ providers: {
 
 **Matching:**
 
-- Request to `/api/users/123` → Matches `'user-service'` (contains `/api/users`)
-- Request to `/api/products?page=1` → Matches `'product-service'` (contains `/api/products`)
-- Request to `/health` → No match, not captured
+- Request to `/api/users/123` -> Matches `'user-service'` (contains `/api/users`)
+- Request to `/api/products?page=1` -> Matches `'product-service'` (contains `/api/products`)
+- Request to `/health` -> No match, not captured
 
 **Tips:**
 
@@ -210,18 +229,33 @@ providers: {
 - Patterns can be full paths or partial paths
 - The first matching provider wins
 
+### Plugin Options (Node.js)
+
+```ts
+interface PactPluginArgs {
+  /** Directory to write Pact files. Defaults to 'pacts' */
+  outputDir?: string;
+
+  /** Root directory to resolve outputDir against. Defaults to process.cwd() */
+  rootDir?: string;
+
+  /** Enable verbose logging */
+  verbose?: boolean;
+}
+```
+
 ### Reporter Options (Node.js)
 
 ```ts
 interface PactReporterArgs {
-  /** Output directory for Pact files. Defaults to './pacts' */
-  outputPath?: string;
+  /** Output directory for Pact files. Defaults to 'pacts' */
+  outputDir?: string;
 
-  /** Package root dir. Defaults to cwd */
+  /** Root directory to resolve outputDir against. Defaults to process.cwd() */
   rootDir?: string;
 
-  /** Enable debug logging */
-  debug?: boolean;
+  /** Enable verbose logging */
+  verbose?: boolean;
 }
 ```
 
@@ -274,7 +308,7 @@ The following URL patterns are excluded by default:
 
 ## Output
 
-Pact files are written to the `outputPath` directory (default: `./pacts`), with one file per provider:
+Pact files are written to the `outputDir` directory (default: `./pacts`), with one file per provider:
 
 ```
 pacts/
@@ -303,10 +337,7 @@ Each file contains Pact v3 contracts with:
       "request": {
         "method": "GET",
         "path": "/api/users/123",
-        "headers": { "content-type": "application/json" },
-        "matchingRules": {
-          "$.path": { "matchers": [{ "match": "type" }] }
-        }
+        "headers": { "content-type": "application/json" }
       },
       "response": {
         "status": 200,
@@ -354,6 +385,24 @@ The adapter automatically generates Pact v3 matching rules for:
 
 ## API Reference
 
+### Node.js Plugin
+
+#### `pactPlugin(options)`
+
+WTR plugin that receives pact data from the browser via `executeServerCommand`.
+
+Handles three commands:
+
+- `pact:report` - Receive and store pact data
+- `pact:clear` - Clear all stored pacts
+- `pact:write` - Write accumulated pacts to disk
+
+### Node.js Reporter
+
+#### `pactReporter(options)`
+
+Reporter that writes accumulated pact files to disk when tests complete.
+
 ### Browser Adapter
 
 #### `initPactAdapter(worker, options)`
@@ -374,7 +423,7 @@ Clear all recorded interactions.
 
 #### `pactAdapter.reportPacts()`
 
-Send Pact contracts to Node.js reporter.
+Send Pact contracts to Node.js plugin via `executeServerCommand`.
 
 #### `getPactAdapter()`
 
@@ -384,10 +433,10 @@ Get the adapter instance for direct access.
 
 ### No Pact files generated
 
-1. Check that `debug: true` is enabled in both reporter and adapter
+1. Ensure both `pactPlugin()` and `pactReporter()` are in your WTR config
 2. Verify MSW worker is properly initialized
 3. Ensure `reportPacts()` is called after each test
-4. Check console for `[PACT-ADAPTER]` and `[PACT-REPORTER]` messages
+4. Enable `verbose: true` on the plugin/reporter for debug output
 
 ### Interactions not captured
 

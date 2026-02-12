@@ -64,8 +64,8 @@ async function run(
 ): Promise<{ actual: string; expected: string }> {
   const files = await globby('*-test.js', { absolute: true, cwd });
   const outputDir = 'pacts';
-  const reporters = [pactReporter({ outputDir })];
-  const plugins = [pactPlugin({ outputDir })];
+  const reporters = [pactReporter({ outputDir, rootDir: cwd })];
+  const plugins = [pactPlugin({ outputDir, rootDir: cwd })];
 
   await runTests(createConfig({ files, reporters, plugins }), [], {
     allowFailure: true,
@@ -191,8 +191,8 @@ describe('pactReporter', function () {
       it('does not create any Pact files', async function () {
         const files = await globby('*-test.js', { absolute: true, cwd: fixtureDir });
         const outputDir = 'pacts';
-        const reporters = [pactReporter({ outputDir })];
-        const plugins = [pactPlugin({ outputDir })];
+        const reporters = [pactReporter({ outputDir, rootDir: fixtureDir })];
+        const plugins = [pactPlugin({ outputDir, rootDir: fixtureDir })];
 
         await runTests(createConfig({ files, reporters, plugins }), [], {
           allowFailure: true,
